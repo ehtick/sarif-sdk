@@ -638,7 +638,7 @@ namespace Microsoft.CodeAnalysis.Sarif.Driver
                 this._fileContexts = new ConcurrentDictionary<uint, TContext>();
 
                 DriverEventSource.Log.EnumerateArtifactsStart();
-                await EnumerateFilesFromArtifactsProvider(globalContext);
+                await EnumerateFilesFromArtifactsProvider(globalContext, recursionDepth: 0);
                 DriverEventSource.Log.EnumerateArtifactsStop();
             }
             finally
@@ -661,7 +661,7 @@ namespace Microsoft.CodeAnalysis.Sarif.Driver
             return true;
         }
 
-        private async Task<bool> EnumerateArtifact(IEnumeratedArtifact artifact, TContext globalContext)
+        private async Task<bool> EnumerateArtifact(IEnumeratedArtifact artifact, TContext globalContext, int recursionDepth = 0)
         {
             globalContext.CancellationToken.ThrowIfCancellationRequested();
 
@@ -696,6 +696,13 @@ namespace Microsoft.CodeAnalysis.Sarif.Driver
 
             if (IsOpcArtifact(artifact, filePath, globalContext))
             {
+                if (recursionDepth >= globalContext.MaxArchiveRecursionDepth)
+                {
+                    string reason = $"archive nesting exceeded maximum depth of {globalContext.MaxArchiveRecursionDepth}";
+                    Notes.LogFileSkipped(globalContext, filePath, reason);
+                    return false;
+                }
+
                 var context = new TContext();
                 context.Policy = globalContext.Policy;
                 context.Logger = globalContext.Logger;
@@ -741,7 +748,7 @@ namespace Microsoft.CodeAnalysis.Sarif.Driver
                 context.TargetsProvider = artifactProvider;
                 context.CurrentTarget = null;
 
-                await EnumerateFilesFromArtifactsProvider(context);
+                await EnumerateFilesFromArtifactsProvider(context, recursionDepth: recursionDepth + 1);
                 return true;
             }
 
@@ -797,11 +804,11 @@ namespace Microsoft.CodeAnalysis.Sarif.Driver
             return artifact.Uri.IsAbsoluteUri && string.IsNullOrEmpty(artifact.Uri.Query);
         }
 
-        private async Task<bool> EnumerateFilesFromArtifactsProvider(TContext globalContext)
+        private async Task<bool> EnumerateFilesFromArtifactsProvider(TContext globalContext, int recursionDepth = 0)
         {
             foreach (IEnumeratedArtifact artifact in globalContext.TargetsProvider.Artifacts)
             {
-                await EnumerateArtifact(artifact, globalContext);
+                await EnumerateArtifact(artifact, globalContext, recursionDepth);
             }
 
             return true;

@@ -37,6 +37,7 @@ namespace Microsoft.CodeAnalysis.Sarif
                 FailureLevelsProperty,
                 GlobalFilePathDenyRegexProperty,
                 MaxFileSizeInKilobytesProperty,
+                MaxArchiveRecursionDepthProperty,
                 EventsBufferSizeInMegabytesProperty,
                 OpcFileExtensionsProperty,
                 OutputFileOptionsProperty,
@@ -252,6 +253,12 @@ namespace Microsoft.CodeAnalysis.Sarif
             set => this.Policy.SetProperty(MaxFileSizeInKilobytesProperty, value >= 0 ? value : MaxFileSizeInKilobytesProperty.DefaultValue());
         }
 
+        public int MaxArchiveRecursionDepth
+        {
+            get => this.Policy.GetProperty(MaxArchiveRecursionDepthProperty);
+            set => this.Policy.SetProperty(MaxArchiveRecursionDepthProperty, value >= 0 ? value : MaxArchiveRecursionDepthProperty.DefaultValue());
+        }
+
         public int EventsBufferSizeInMegabytes
         {
             get => this.Policy.GetProperty(EventsBufferSizeInMegabytesProperty);
@@ -422,6 +429,15 @@ namespace Microsoft.CodeAnalysis.Sarif
                 $"    It is legal to set this value to 0 (in order to potentially complete an analysis that{Environment.NewLine}" +
                 $"    records what scan targets would have been analyzed, given current configuration.{Environment.NewLine}" +
                 $"    Negative values will be discarded in favor of the default of {MaxFileSizeInKilobytesProperty?.DefaultValue() ?? DefaultMaxFileSizeInKilobytes} KB.");
+
+        private const int DefaultMaxArchiveRecursionDepth = 10;
+        public static PerLanguageOption<int> MaxArchiveRecursionDepthProperty { get; } =
+            new PerLanguageOption<int>(
+                $"CoreSettings", nameof(MaxArchiveRecursionDepth), defaultValue: () => DefaultMaxArchiveRecursionDepth,
+                $"{Environment.NewLine}" +
+                $"    Maximum depth for recursively analyzing nested archives (ZIP files, OPC packages, etc.).{Environment.NewLine}" +
+                $"    This prevents stack overflow when processing deeply nested or circular archive structures.{Environment.NewLine}" +
+                $"    Negative values will be discarded in favor of the default of {DefaultMaxArchiveRecursionDepth}.");
 
 
         public static PerLanguageOption<int> EventsBufferSizeInMegabytesProperty { get; } =
